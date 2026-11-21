@@ -27,6 +27,8 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; }
+  html, body { overflow-x: hidden; max-width: 100%; }
+  input, textarea { max-width: 100%; }
   html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   /* キーボードが出ている間は入力欄を少し低くして、保存ボタンまで見えるようにする */
   body.kb-open textarea { min-height: 22vh; }
@@ -163,6 +165,16 @@
 
 <script>
 (() => {
+  // ▼ アプリの版。更新するたびに数字を上げる(古い版が残っていたら自動で最新に切り替える)
+  const APP_VERSION = '4';
+  (async () => {
+    try {
+      const html = await fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
+      const m = html.match(/APP_VERSION = '(\d+)'/);
+      if (m && m[1] !== APP_VERSION) location.replace(location.pathname + '?v=' + m[1]);
+    } catch {}
+  })();
+
   // ▼ GASのウェブアプリURL(公開後にここへ入れる)
   const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbyMBBYOq9FCls_UnfTeX-IxKIc9zy06ipf-8LTIz4PJee_Na3v6lAc0ajGz51MV1qgT/exec';
 
