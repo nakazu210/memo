@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -45,10 +45,10 @@
   .composer { background: var(--pad); border-radius: 16px; padding: 12px 14px; border-top: 6px solid var(--padline); }
   textarea {
     width: 100%; min-height: 34vh; border: none; outline: none; resize: none; background: transparent;
-    color: var(--text); font: 18px/1.7 inherit; font-family: inherit; display: block;
+    color: var(--text); font-size: 18px; line-height: 1.7; font-family: inherit; display: block;
   }
   .dtrow { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 14px; color: var(--sub); }
-  input[type=datetime-local] { font: 15px inherit; font-family: inherit; color: var(--text); background: transparent;
+  input[type=datetime-local] { font-size: 16px; font-family: inherit; color: var(--text); background: transparent;
     border: 1px solid var(--padline); border-radius: 10px; padding: 6px 8px; min-height: 38px; }
   .hint { font-size: 13px; color: var(--sub); min-height: 1.2em; margin-top: 4px; }
 
@@ -60,7 +60,7 @@
     border-top: 1px solid var(--line);
   }
   body.kb-open .actionbar { padding-bottom: 10px; }
-  .btn { border: none; border-radius: 14px; min-height: 52px; padding: 0 18px; font: 700 17px inherit;
+  .btn { border: none; border-radius: 14px; min-height: 52px; padding: 0 18px; font-size: 17px; font-weight: 700;
     font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
   .btn svg { width: 22px; height: 22px; }
   .mic { background: var(--card); color: var(--text); border: 1px solid var(--line); min-width: 64px; }
@@ -69,7 +69,7 @@
   .save { background: var(--accent); color: #fff; flex: 1; }
 
   .listpane { margin-top: 18px; }
-  .search { width: 100%; font: 16px inherit; font-family: inherit; color: var(--text); background: var(--card);
+  .search { width: 100%; font-size: 16px; font-family: inherit; color: var(--text); background: var(--card);
     border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 44px; }
   .day { font-size: 13px; color: var(--sub); font-weight: 700; margin: 18px 2px 8px; display: flex; gap: 8px; align-items: center; }
   .day::after { content: ""; flex: 1; height: 1px; background: var(--line); }
@@ -78,7 +78,7 @@
   .meta { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sub); font-variant-numeric: tabular-nums; }
   .pending { color: #b07a00; }
   .text { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
-  .del { margin-left: auto; background: none; border: none; color: var(--sub); font: 13px inherit; font-family: inherit;
+  .del { margin-left: auto; background: none; border: none; color: var(--sub); font-size: 13px; font-family: inherit;
     padding: 8px 10px; border-radius: 8px; cursor: pointer; }
   .del.confirm { color: #fff; background: var(--danger); }
   .empty { text-align: center; color: var(--sub); margin: 36px 0; font-size: 15px; }
@@ -148,7 +148,8 @@
 <dialog id="settings">
   <h3 style="margin:0">設定</h3>
   <label>合言葉</label>
-  <input id="keyInput" type="password" autocomplete="off">
+  <input id="keyInput" type="text" inputmode="latin" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
+  <div class="hint" id="keyHint"></div>
   <label>保存先のURL(通常は変更不要)</label>
   <input id="urlInput" placeholder="https://script.google.com/macros/s/.../exec">
   <div class="row">
@@ -170,7 +171,9 @@
 
   let memos = LS.get('memo.list', []);
   let queue = LS.get('memo.queue', []);
+  const normKey = v => String(v || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
   let cfg = LS.get('memo.cfg', { url: '', key: '' });
+  cfg.key = normKey(cfg.key);
   if (!cfg.url) cfg.url = DEFAULT_URL;
   let editingId = null, dtTouched = false, syncing = false, confirmId = null, confirmTimer = null;
 
@@ -324,6 +327,7 @@
       memos = data.memos; persist(); render();
       setStatus('同期済み ' + timeLabel(new Date()));
     } catch (err) {
+      if (err.message === 'unauthorized') { $('keyHint').textContent = '合言葉が違います。もう一度入れてください(半角・小文字)'; openSettings(); }
       setStatus(err.message === 'unauthorized' ? '合言葉が違います' : `同期エラー${queue.length ? `(未送信${queue.length})` : ''}`);
       render();
     } finally { syncing = false; }
@@ -333,12 +337,12 @@
   setInterval(() => { if (document.visibilityState === 'visible') sync(); }, 60000);
 
   // ---------- 設定 ----------
-  function openSettings() { $('keyInput').value = cfg.key; $('urlInput').value = cfg.url; $('settings').showModal(); }
+  function openSettings() { $('keyInput').value = cfg.key; $('urlInput').value = cfg.url; if (!$('settings').open) $('settings').showModal(); }
   $('settingsBtn').addEventListener('click', openSettings);
   $('closeSettings').addEventListener('click', () => $('settings').close());
   $('saveSettings').addEventListener('click', () => {
-    cfg = { url: $('urlInput').value.trim() || DEFAULT_URL, key: $('keyInput').value.trim() };
-    LS.set('memo.cfg', cfg); $('settings').close(); sync();
+    cfg = { url: $('urlInput').value.trim() || DEFAULT_URL, key: normKey($('keyInput').value) };
+    LS.set('memo.cfg', cfg); $('keyHint').textContent = ''; $('settings').close(); sync();
   });
 
   // ---------- 音声入力 ----------
